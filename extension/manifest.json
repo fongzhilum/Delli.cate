@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Delli.cate Story Scanner",
+  "version": "3.0.0",
+  "description": "Scans Instagram stories for distress signals and saves to Delli.cate dashboard",
+
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "https://www.instagram.com/*",
+    "http://localhost:7842/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://www.instagram.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

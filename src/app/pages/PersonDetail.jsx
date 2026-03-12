@@ -82,11 +82,6 @@ export default function PersonDetail() {
   }, [person]);
 
   // Save notes to context when they change
-  useEffect(() => {
-    if (person && notes !== person.notes) {
-      updatePerson(person.id, { notes });
-    }
-  }, [notes]);
 
   if (!person) {
     return (
@@ -763,7 +758,7 @@ export default function PersonDetail() {
                         <div className="flex items-start gap-2">
                           <MessageSquare className="size-4 mt-0.5 opacity-40 flex-shrink-0" />
                           <span className="text-sm leading-relaxed font-medium text-slate-800">
-                            "{post.extractedText}"
+                            "{post.content}"
                           </span>
                         </div>
                       </div>

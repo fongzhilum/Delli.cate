@@ -121,7 +121,7 @@ export default function Dashboard() {
       location: newCase.location,
       assignedWorker: newCase.assignedWorker,
       riskLevel: 'low',
-      distressScore: 15,
+      distressScore: 0,
       lastContact: new Date().toISOString(),
       status: 'active',
       socialMediaAccounts: socialMediaAccounts,
