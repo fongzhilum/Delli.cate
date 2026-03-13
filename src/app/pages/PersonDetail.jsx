@@ -7,7 +7,8 @@ import { Separator } from '../components/ui/separator';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Area, AreaChart } from 'recharts';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '../../lib/supabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Textarea } from '../components/ui/textarea';
 import { Label } from '../components/ui/label';
@@ -80,6 +81,57 @@ export default function PersonDetail() {
       });
     }
   }, [person]);
+
+  // Auto-generate AI summary when case is opened
+  const summaryGeneratedRef = useRef(false);
+  useEffect(() => {
+    if (!person || summaryGeneratedRef.current) return;
+    summaryGeneratedRef.current = true;
+
+    const generateSummary = async () => {
+      try {
+        const storyText = (person.distressPosts ?? [])
+          .slice(0, 10)
+          .map(p => `- "${p.content}" (distress: ${p.distressScore}/100)`)
+          .join('\n');
+
+        const notesText = (person.notes ?? []).join('\n- ');
+
+        const prompt = `You are a clinical youth welfare analyst. Summarise this case in 2-3 sentences for a social worker dashboard.
+
+Case: ${person.name}, ${person.age}y, ${person.location}
+Risk level: ${person.riskLevel}
+Overall distress: ${person.distressScore}%
+Assigned worker: ${person.assignedWorker}
+
+Recent Instagram story content:
+${storyText || 'No story data yet.'}
+
+Case notes:
+${notesText || 'No notes yet.'}
+
+Write a concise clinical summary highlighting key concerns and recommended actions. Be direct and professional.`;
+
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + import.meta.env.VITE_GEMINI_API_KEY, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        });
+
+        const data = await res.json();
+        const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (!summary) return;
+
+        await supabase.from('cases').update({ ai_summary: summary }).eq('id', person.id);
+      } catch (err) {
+        console.error('[AI Summary]', err);
+      }
+    };
+
+    generateSummary();
+  }, [person?.id]);
 
   // Save notes to context when they change
 

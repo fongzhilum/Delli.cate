@@ -1,23 +1,38 @@
 /**
  * DataContext.jsx
- *
- * Drop-in replacement for your existing DataContext.
- * Replaces the in-memory mock data with live Supabase queries.
- *
- * The shape of every `person` object returned to components is
- * IDENTICAL to what your existing Dashboard / PersonDetail expect,
- * so no other files need to change.
  */
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
-// ─────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────
-
-/** Convert a DB row + joins into the flat person object your UI expects */
 function rowToPerson(row) {
+  const distressPosts = (row.instagram_stories_content ?? []).map(s => ({
+    id:                 s.id,
+    platform:           'instagram',
+    content:            s.ocr_text,
+    distressScore:      s.distress_score,
+    emotionalIntensity: s.emotional_intensity,
+    isConcerning:       s.is_concerning,
+    summary:            s.gemini_summary,
+    timestamp:          s.captured_at,
+  })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const recentNonZero = distressPosts.filter(p =>
+    new Date(p.timestamp) >= sevenDaysAgo && (p.distressScore ?? 0) > 0
+  );
+
+  const overallDistress = recentNonZero.length
+    ? Math.round(recentNonZero.reduce((sum, p) => sum + p.distressScore, 0) / recentNonZero.length)
+    : row.distress_score ?? 0;
+
+  const derivedRiskLevel = overallDistress >= 65 ? 'critical'
+    : overallDistress >= 45 ? 'high'
+    : overallDistress >= 25 ? 'medium'
+    : 'low';
+
   return {
     id:              row.id,
     caseId:          row.case_id,
@@ -25,12 +40,11 @@ function rowToPerson(row) {
     age:             row.age,
     location:        row.location,
     assignedWorker:  row.workers?.name ?? null,
-    riskLevel:       row.risk_level,
-    distressScore:   row.distress_score,
+    riskLevel:       distressPosts.length ? derivedRiskLevel : row.risk_level,
+    distressScore:   overallDistress,
     status:          row.status,
     aiSummary:       row.ai_summary,
     lastContact:     row.last_contact,
-    // Nested arrays (populated by fetchPersons or fetchPerson)
     socialMediaAccounts: (row.social_media_accounts ?? []).map(a => ({
       platform:    a.platform,
       username:    a.username,
@@ -38,35 +52,21 @@ function rowToPerson(row) {
       lastChecked: a.last_checked,
     })),
     notes:        (row.case_notes ?? []).map(n => n.body),
-    _notesRaw:    row.case_notes ?? [],          // keep IDs for edit/delete
-    distressPosts:(row.distress_posts ?? []).map(p => ({
-      id:               p.id,
-      platform:         p.platform,
-      content:          p.content,
-      distressScore:    p.distress_score,
-      emotionalIntensity: p.emotional_intensity,
-      isConcerning:     p.is_concerning,
-      timestamp:        p.timestamp,
-    })),
+    _notesRaw:    row.case_notes ?? [],
+    distressPosts,
   };
 }
 
-/** Convert a DB worker row into a plain string (what the UI uses) */
 const rowToWorkerName = (row) => row.name;
-
-// ─────────────────────────────────────────────────────────────
-// Context
-// ─────────────────────────────────────────────────────────────
 
 const DataContext = createContext(null);
 
 export function DataProvider({ children }) {
   const [persons,  setPersons]  = useState([]);
-  const [workers,  setWorkers]  = useState([]);   // array of name strings
+  const [workers,  setWorkers]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
 
-  // ── Fetch all workers ──────────────────────────────────────
   const fetchWorkers = useCallback(async () => {
     const { data, error } = await supabase
       .from('workers')
@@ -76,7 +76,6 @@ export function DataProvider({ children }) {
     setWorkers(data.map(rowToWorkerName));
   }, []);
 
-  // ── Fetch all persons (with joins) ────────────────────────
   const fetchPersons = useCallback(async () => {
     const { data, error } = await supabase
       .from('cases')
@@ -85,7 +84,7 @@ export function DataProvider({ children }) {
         workers ( name ),
         social_media_accounts ( * ),
         case_notes ( * ),
-        distress_posts ( * )
+        instagram_stories_content ( * )
       `)
       .order('created_at', { ascending: false });
 
@@ -93,7 +92,6 @@ export function DataProvider({ children }) {
     setPersons(data.map(rowToPerson));
   }, []);
 
-  // ── Bootstrap ─────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -102,51 +100,42 @@ export function DataProvider({ children }) {
     })();
   }, [fetchWorkers, fetchPersons]);
 
-  // ── Real-time subscription (optional but nice) ────────────
   useEffect(() => {
     const channel = supabase
       .channel('cases-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cases' }, fetchPersons)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'distress_posts' }, fetchPersons)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'case_notes' }, fetchPersons)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'instagram_stories_content' }, fetchPersons)
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [fetchPersons]);
 
-  // ─────────────────────────────────────────────────────────
-  // PERSONS API
-  // ─────────────────────────────────────────────────────────
-
-  /** Add a brand-new case (called from Dashboard "Add Case" form) */
   const addPerson = useCallback(async (newPerson) => {
-    // 1. Resolve worker name → id
     const { data: workerRows } = await supabase
       .from('workers')
       .select('id')
       .eq('name', newPerson.assignedWorker)
       .single();
 
-    // 2. Insert case row
     const { data: caseRow, error: caseErr } = await supabase
       .from('cases')
       .insert({
-        case_id:       newPerson.caseId,
-        name:          newPerson.name,
-        age:           newPerson.age,
-        location:      newPerson.location,
-        worker_id:     workerRows?.id ?? null,
-        risk_level:    newPerson.riskLevel ?? 'low',
+        case_id:        newPerson.caseId,
+        name:           newPerson.name,
+        age:            newPerson.age,
+        location:       newPerson.location,
+        worker_id:      workerRows?.id ?? null,
+        risk_level:     newPerson.riskLevel ?? 'low',
         distress_score: newPerson.distressScore ?? 0,
-        status:        'active',
-        ai_summary:    newPerson.aiSummary ?? null,
-        last_contact:  newPerson.lastContact ?? new Date().toISOString(),
+        status:         'active',
+        ai_summary:     newPerson.aiSummary ?? null,
+        last_contact:   newPerson.lastContact ?? new Date().toISOString(),
       })
       .select()
       .single();
 
     if (caseErr) { console.error(caseErr); return; }
 
-    // 3. Insert social media accounts
     if (newPerson.socialMediaAccounts?.length) {
       await supabase.from('social_media_accounts').insert(
         newPerson.socialMediaAccounts.map(a => ({
@@ -159,7 +148,6 @@ export function DataProvider({ children }) {
       );
     }
 
-    // 4. Insert default note
     if (newPerson.notes?.length) {
       await supabase.from('case_notes').insert(
         newPerson.notes.map(body => ({ case_id: caseRow.id, body }))
@@ -169,10 +157,6 @@ export function DataProvider({ children }) {
     await fetchPersons();
   }, [fetchPersons]);
 
-  /**
-   * Update an existing case.
-   * `updates` can contain any subset of the person shape your UI passes.
-   */
   const updatePerson = useCallback(async (personId, updates) => {
     const patch = {};
 
@@ -185,7 +169,6 @@ export function DataProvider({ children }) {
     if ('aiSummary'     in updates) patch.ai_summary     = updates.aiSummary;
     if ('lastContact'   in updates) patch.last_contact   = updates.lastContact;
 
-    // Resolve assignedWorker → worker_id
     if ('assignedWorker' in updates) {
       const { data } = await supabase
         .from('workers')
@@ -199,9 +182,7 @@ export function DataProvider({ children }) {
       await supabase.from('cases').update(patch).eq('id', personId);
     }
 
-    // Handle notes array replacement (PersonDetail passes full notes array)
     if (updates.notes) {
-      // Delete existing notes then re-insert
       await supabase.from('case_notes').delete().eq('case_id', personId);
       if (updates.notes.length) {
         await supabase.from('case_notes').insert(
@@ -210,7 +191,6 @@ export function DataProvider({ children }) {
       }
     }
 
-    // Handle social media accounts
     if (updates.socialMediaAccounts) {
       await supabase.from('social_media_accounts').delete().eq('case_id', personId);
       if (updates.socialMediaAccounts.length) {
@@ -228,10 +208,6 @@ export function DataProvider({ children }) {
 
     await fetchPersons();
   }, [fetchPersons]);
-
-  // ─────────────────────────────────────────────────────────
-  // WORKERS API
-  // ─────────────────────────────────────────────────────────
 
   const addWorker = useCallback(async (name) => {
     const { error } = await supabase.from('workers').insert({ name });
@@ -251,33 +227,9 @@ export function DataProvider({ children }) {
     const { data } = await supabase
       .from('workers').select('id').eq('name', name).single();
     if (!data) return;
-    // Cases keep their row; worker_id becomes NULL (on delete set null)
     await supabase.from('workers').delete().eq('id', data.id);
     await Promise.all([fetchWorkers(), fetchPersons()]);
   }, [fetchWorkers, fetchPersons]);
-
-  // ─────────────────────────────────────────────────────────
-  // DISTRESS POSTS (written by your Chrome extension)
-  // Exposed here so the extension can also call Supabase directly
-  // ─────────────────────────────────────────────────────────
-
-  /**
-   * Add a distress post from the extension.
-   * The extension should call supabase directly, but this helper
-   * is here if you want to trigger it from the frontend too.
-   */
-  const addDistressPost = useCallback(async (caseId, post) => {
-    await supabase.from('distress_posts').insert({
-      case_id:           caseId,
-      platform:          post.platform,
-      content:           post.content,
-      distress_score:    post.distressScore,
-      emotional_intensity: post.emotionalIntensity,
-      is_concerning:     post.isConcerning,
-      timestamp:         post.timestamp ?? new Date().toISOString(),
-    });
-    // Real-time subscription will trigger fetchPersons automatically
-  }, []);
 
   return (
     <DataContext.Provider value={{
@@ -290,7 +242,6 @@ export function DataProvider({ children }) {
       addWorker,
       updateWorker,
       deleteWorker,
-      addDistressPost,
       refetch: fetchPersons,
     }}>
       {children}

@@ -1,39 +1,66 @@
-/**
- * popup.js
- * Updates the popup UI with live scan stats stored in chrome.storage.local
- */
+const pill         = document.getElementById("pill");
+const statusText   = document.getElementById("statusText");
+const captureCount = document.getElementById("captureCount");
+const lastScore    = document.getElementById("lastScore");
+const riskBadge    = document.getElementById("riskBadge");
+const captureText  = document.getElementById("captureText");
+const scoreNum     = document.getElementById("scoreNum");
+const barFill      = document.getElementById("barFill");
+const nextCapture  = document.getElementById("nextCapture");
 
-async function updateUI() {
-  const data = await chrome.storage.local.get(['storiesCount', 'flaggedCount', 'lastScan', 'isOnStories']);
+let count = 0;
 
-  const storiesCount = data.storiesCount ?? 0;
-  const flaggedCount = data.flaggedCount ?? 0;
-  const lastScan     = data.lastScan     ?? null;
-  const isOnStories  = data.isOnStories  ?? false;
-
-  document.getElementById('storiesCount').textContent = storiesCount;
-  document.getElementById('flaggedCount').textContent = flaggedCount;
-
-  const dot   = document.getElementById('statusDot');
-  const label = document.getElementById('statusLabel');
-  const sub   = document.getElementById('statusSub');
-
-  if (isOnStories) {
-    dot.className   = 'status-dot active';
-    label.textContent = 'Scanning Stories';
-    sub.textContent   = 'Capturing and analysing content';
-  } else {
-    dot.className   = 'status-dot waiting';
-    label.textContent = 'Waiting for Stories';
-    sub.textContent   = 'Navigate to an Instagram story';
-  }
-
-  if (lastScan) {
-    const d = new Date(lastScan);
-    document.getElementById('lastScan').textContent =
-      `Last scan: ${d.toLocaleTimeString()}`;
-  }
+function setActive(username) {
+  pill.className = "pill active";
+  statusText.textContent = `@${username}`;
 }
 
-updateUI();
-setInterval(updateUI, 2000);
+function updateScore(data) {
+  count++;
+  captureCount.textContent = count;
+
+  const score = data.distress_score ?? 0;
+  const label = (data.risk_label ?? "low").toLowerCase();
+
+  lastScore.textContent = score + "%";
+
+  // Risk badge
+  riskBadge.textContent  = label.toUpperCase();
+  riskBadge.className    = "risk-badge";
+  if (label === "critical") riskBadge.className += " critical";
+  else if (label === "high") riskBadge.className += " high";
+  else if (label === "medium") riskBadge.className += " medium";
+
+  // Text preview
+  if (data.text) {
+    captureText.textContent = data.text.slice(0, 90) + (data.text.length > 90 ? "…" : "");
+    captureText.className   = "capture-text has-data";
+  }
+
+  // Bar
+  scoreNum.textContent = `${score} / 100`;
+  barFill.style.width  = `${score}%`;
+  barFill.className    = "bar-fill";
+  if (label === "critical") barFill.className += " critical";
+  else if (label === "high") barFill.className += " high";
+  else if (label === "medium") barFill.className += " medium";
+}
+
+chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+  const m = tab?.url?.match(/\/stories\/([^/]+)/);
+  if (m) setActive(m[1]);
+});
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === "POPUP_UPDATE") updateScore(msg.data);
+  if (msg.type === "STORY_CLOSED") {
+    pill.className = "pill";
+    statusText.textContent = "Waiting for story...";
+  }
+});
+
+let seconds = 8;
+setInterval(() => {
+  nextCapture.textContent = `next in ${seconds}s`;
+  seconds = seconds <= 1 ? 8 : seconds - 1;
+}, 1000);

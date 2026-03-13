@@ -1,144 +1,320 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Delli.cate</title>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --purple: #6c3ce1;
+      --purple-light: #7c4ff0;
+      --purple-bg: #f0ebff;
+      --purple-border: #d4c5fa;
+      --bg: #f8f9fa;
+      --white: #ffffff;
+      --border: #e8e8ee;
+      --text: #1a1a2e;
+      --muted: #8b8b9e;
+      --red: #ef4444;
+      --red-bg: #fff0f0;
+      --orange: #f97316;
+      --yellow: #eab308;
+      --green: #22c55e;
+      --green-bg: #f0fdf4;
+      --radius: 10px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      width: 280px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f8fafc;
-      color: #1e293b;
+      width: 310px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
     }
 
+    /* ── HEADER ── */
     .header {
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      padding: 16px;
+      background: var(--white);
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
-    .header-icon {
-      width: 36px;
-      height: 36px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-    }
-
-    .header-text h1 {
-      font-size: 16px;
-      font-weight: 700;
-      color: white;
-    }
-
-    .header-text p {
-      font-size: 10px;
-      color: rgba(255,255,255,0.7);
-      margin-top: 1px;
-    }
-
-    .body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
-
-    .status-card {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 12px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #94a3b8;
+    .logo-icon {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, #6c3ce1, #9f6ef5);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
 
-    .status-dot.active  { background: #22c55e; box-shadow: 0 0 0 3px #dcfce7; }
-    .status-dot.waiting { background: #f59e0b; box-shadow: 0 0 0 3px #fef9c3; }
+    .logo-icon svg { width: 18px; height: 18px; fill: white; }
 
-    .status-label { font-size: 12px; font-weight: 600; color: #475569; }
-    .status-sub   { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+    .logo-text {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
 
+    .logo-text span { color: var(--purple); }
+
+    .logo-sub {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 400;
+      margin-top: 1px;
+    }
+
+    /* ── STATUS ── */
+    .status-wrap {
+      background: var(--white);
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 99px;
+      background: #f3f4f6;
+      border: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      transition: all 0.3s;
+    }
+
+    .pill.active {
+      background: var(--purple-bg);
+      border-color: var(--purple-border);
+      color: var(--purple);
+    }
+
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #d1d5db;
+      flex-shrink: 0;
+    }
+
+    .pill.active .dot {
+      background: var(--purple);
+      animation: ping 1.4s ease infinite;
+    }
+
+    @keyframes ping {
+      0%   { box-shadow: 0 0 0 0 #6c3ce150; }
+      70%  { box-shadow: 0 0 0 5px #6c3ce100; }
+      100% { box-shadow: 0 0 0 0 #6c3ce100; }
+    }
+
+    /* ── STATS ── */
     .stats {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      grid-template-columns: 1fr 1fr 1fr;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
     }
 
-    .stat-card {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 10px 12px;
-      text-align: center;
+    .stat {
+      padding: 12px 14px;
+      border-right: 1px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+
+    .stat-val {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
     }
 
-    .stat-num  { font-size: 22px; font-weight: 700; color: #4f46e5; }
-    .stat-label { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+    .stat-label {
+      margin-top: 3px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
 
-    .last-scan {
+    /* Risk badge */
+    .risk-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
       font-size: 10px;
-      color: #94a3b8;
-      text-align: center;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--green-bg);
+      color: var(--green);
+    }
+    .risk-badge.medium { background: #fffbeb; color: var(--yellow); }
+    .risk-badge.high   { background: #fff7ed; color: var(--orange); }
+    .risk-badge.critical { background: var(--red-bg); color: var(--red); }
+
+    /* ── TEXT PREVIEW ── */
+    .capture {
+      background: var(--white);
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      min-height: 60px;
     }
 
+    .section-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .capture-text {
+      font-size: 12px;
+      color: #9ca3af;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    .capture-text.has-data {
+      color: var(--text);
+      font-style: normal;
+      font-weight: 400;
+    }
+
+    /* ── SCORE BAR ── */
+    .score-wrap {
+      background: var(--white);
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .score-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .score-num {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .bar-track {
+      height: 6px;
+      background: #f3f4f6;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #6c3ce1, #9f6ef5);
+      transition: width 0.6s cubic-bezier(0.4,0,0.2,1), background 0.3s;
+      width: 0%;
+    }
+
+    .bar-fill.medium { background: linear-gradient(90deg, #d97706, #fbbf24); }
+    .bar-fill.high   { background: linear-gradient(90deg, #ea580c, #f97316); }
+    .bar-fill.critical { background: linear-gradient(90deg, #dc2626, #ef4444); }
+
+    /* ── FOOTER ── */
     .footer {
-      border-top: 1px solid #e2e8f0;
-      padding: 10px 14px;
+      padding: 9px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg);
+    }
+
+    .footer-text {
       font-size: 10px;
-      color: #cbd5e1;
-      text-align: center;
+      color: #d1d5db;
+      font-weight: 500;
+    }
+
+    .next-cap {
+      font-size: 10px;
+      color: #d1d5db;
+      font-weight: 500;
+    }
+
+    /* ── Top accent bar ── */
+    .accent-bar {
+      height: 3px;
+      background: linear-gradient(90deg, #6c3ce1, #9f6ef5, #c084fc);
     }
   </style>
 </head>
 <body>
 
+  <div class="accent-bar"></div>
+
   <div class="header">
-    <div class="header-icon">🛡️</div>
-    <div class="header-text">
-      <h1>Delli.cate</h1>
-      <p>Story Scanner Active</p>
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">Delli<span>.</span>cate</div>
+      <div class="logo-sub">AI Risk Assessment</div>
     </div>
   </div>
 
-  <div class="body">
-
-    <div class="status-card">
-      <div class="status-dot" id="statusDot"></div>
-      <div>
-        <div class="status-label" id="statusLabel">Waiting for Instagram Stories</div>
-        <div class="status-sub"  id="statusSub">Navigate to any story to begin</div>
-      </div>
+  <div class="status-wrap">
+    <div class="pill" id="pill">
+      <div class="dot" id="dot"></div>
+      <span id="statusText">Waiting for story...</span>
     </div>
-
-    <div class="stats">
-      <div class="stat-card">
-        <div class="stat-num"  id="storiesCount">0</div>
-        <div class="stat-label">Stories Scanned</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num"  id="flaggedCount" style="color:#dc2626">0</div>
-        <div class="stat-label">Flagged</div>
-      </div>
-    </div>
-
-    <div class="last-scan" id="lastScan">No scans yet this session</div>
-
   </div>
 
-  <div class="footer">Delli.cate · AI Risk Assessment</div>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val" id="captureCount">0</div>
+      <div class="stat-label">Captures</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="lastScore">—</div>
+      <div class="stat-label">Distress</div>
+    </div>
+    <div class="stat">
+      <div style="margin-top:2px" id="riskBadgeWrap">
+        <span class="risk-badge" id="riskBadge">—</span>
+      </div>
+      <div class="stat-label" style="margin-top:5px">Risk</div>
+    </div>
+  </div>
+
+  <div class="capture">
+    <div class="section-label">Last extracted text</div>
+    <div class="capture-text" id="captureText">No captures yet</div>
+  </div>
+
+  <div class="score-wrap">
+    <div class="score-header">
+      <div class="section-label" style="margin:0">Distress level</div>
+      <div class="score-num" id="scoreNum">0 / 100</div>
+    </div>
+    <div class="bar-track">
+      <div class="bar-fill" id="barFill"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span class="footer-text">Screenshot every 8s</span>
+    <span class="next-cap" id="nextCapture">—</span>
+  </div>
 
   <script src="popup.js"></script>
 </body>
