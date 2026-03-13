@@ -61,12 +61,16 @@ def extract_text(image_bytes: bytes) -> str:
     return " ".join(words).strip()
 
 # ── Gemini text scoring (text only, not image) ────────────────
-PROMPT = """Analyse this Instagram story text for youth distress signals.
+PROMPT = """You are a welfare worker analysing raw OCR text from an Instagram story screenshot.
 
-Text: "{text}"
+Raw OCR text: "{text}"
 
-Reply ONLY with valid JSON:
+1. Extract ONLY the user's actual caption, ignoring all UI noise
+2. Analyse it for youth distress signals
+
+Reply ONLY with valid JSON, no markdown:
 {{
+  "ocr_text_cleaned": "<only the actual caption, empty string if none>",
   "distress_score": <0-100>,
   "emotional_intensity": <0-100>,
   "is_concerning": <true or false>,
@@ -132,7 +136,7 @@ async def analyse(frame: UploadFile = File(...), username: str = Form(...)):
     _supabase.table("instagram_stories_content").insert({
         "instagram_username":  username,
         "case_id":             case_id,
-        "ocr_text":            text,
+        "ocr_text":            score.get("ocr_text_cleaned", text),
         "distress_score":      score["distress_score"],
         "emotional_intensity": score.get("emotional_intensity", 0),
         "is_concerning":       score.get("is_concerning", False),
