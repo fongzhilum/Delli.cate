@@ -82,11 +82,18 @@ export default function PersonDetail() {
     }
   }, [person]);
 
-  // Auto-generate AI summary when case is opened
-  const summaryGeneratedRef = useRef(false);
+// Auto-generate AI summary when data changes
+  const summaryGeneratedRef = useRef(null);
   useEffect(() => {
-    if (!person || summaryGeneratedRef.current) return;
-    summaryGeneratedRef.current = true;
+    if (!person) return;
+
+    const dataKey = `${person.id}-${person.distressPosts?.length}-${person.notes?.length}`;
+    if (summaryGeneratedRef.current === dataKey) {
+      console.log('[AI Summary] Skipping — data unchanged:', dataKey);
+      return;
+    }
+    summaryGeneratedRef.current = dataKey;
+    console.log('[AI Summary] Data changed, regenerating for', person.name, '| key:', dataKey);
 
     const generateSummary = async () => {
       try {
@@ -97,7 +104,26 @@ export default function PersonDetail() {
 
         const notesText = (person.notes ?? []).join('\n- ');
 
-        const prompt = `You are a clinical youth welfare analyst. Summarise this case in 2-3 sentences for a social worker dashboard.
+        // Fetch chatbot key themes if available
+        const igUsername = person.socialMediaAccounts?.find(a => a.platform === 'instagram')?.username;
+        let chatbotText = '';
+        if (igUsername) {
+          const { data: chatData } = await supabase
+            .from('worker_updates')
+            .select('key_themes')
+            .eq('instagram_username', igUsername)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single();
+          if (chatData?.key_themes) {
+            chatbotText = `\nChatbot key themes: ${Array.isArray(chatData.key_themes) ? chatData.key_themes.join(', ') : chatData.key_themes}.`;
+          }
+        }
+
+        console.log('[AI Summary] Story posts:', person.distressPosts?.length ?? 0);
+        console.log('[AI Summary] Notes:', person.notes?.length ?? 0);
+
+        const prompt = `You are a clinical youth welfare analyst. Summarise this case in 3-4 sentences for a social worker dashboard.
 
 Case: ${person.name}, ${person.age}y, ${person.location}
 Risk level: ${person.riskLevel}
@@ -109,30 +135,43 @@ ${storyText || 'No story data yet.'}
 
 Case notes:
 ${notesText || 'No notes yet.'}
+${chatbotText}
 
-Write a concise clinical summary highlighting key concerns and recommended actions. Be direct and professional.`;
+Write a concise clinical summary covering: 
+(1) current emotional state and risk level, 
+(2) what is happening in their life based on their recent posts and chatbot conversations,
+(3) recommended actions for the given case, be as personalised as possible. 
+Be direct and professional.`;
 
-        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + import.meta.env.VITE_GEMINI_API_KEY, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
-        });
+        const res = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' +
+          import.meta.env.VITE_GEMINI_API_KEY,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+          }
+        );
 
         const data = await res.json();
-        const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-        if (!summary) return;
+        console.log('[AI Summary] Raw response:', data);
 
+        const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().replace(/\*\*/g, '');
+        if (!summary) {
+          console.warn('[AI Summary] No summary returned', data);
+          return;
+        }
+
+        console.log('[AI Summary] Generated:', summary.slice(0, 100));
         await supabase.from('cases').update({ ai_summary: summary }).eq('id', person.id);
+        console.log('[AI Summary] Saved to Supabase ✓');
       } catch (err) {
-        console.error('[AI Summary]', err);
+        console.error('[AI Summary] Error:', err);
       }
     };
 
     generateSummary();
-  }, [person?.id]);
-
+  }, [person?.id, person?.distressPosts?.length, person?.notes?.length]);
   // Save notes to context when they change
 
   if (!person) {
@@ -165,37 +204,37 @@ Write a concise clinical summary highlighting key concerns and recommended actio
   };
 
   const getDistressColor = (score) => {
-    if (score >= 65) return 'bg-red-50 border-red-200 text-red-900';
-    if (score >= 45) return 'bg-orange-50 border-orange-200 text-orange-900';
-    if (score >= 25) return 'bg-yellow-50 border-yellow-200 text-yellow-900';
+    if (score >= 70) return 'bg-red-50 border-red-200 text-red-900';
+    if (score >= 50) return 'bg-orange-50 border-orange-200 text-orange-900';
+    if (score >= 30) return 'bg-yellow-50 border-yellow-200 text-yellow-900';
     return 'bg-green-50 border-green-200 text-green-900';
   };
 
   const getDistressLabel = (score) => {
-    if (score >= 65) return 'Critical';
-    if (score >= 45) return 'High';
-    if (score >= 25) return 'Moderate';
+    if (score >= 70) return 'Critical';
+    if (score >= 50) return 'High';
+    if (score >= 30) return 'Moderate';
     return 'Low';
   };
 
   const getScoreColor = (score) => {
-    if (score >= 65) return 'text-red-600';
-    if (score >= 45) return 'text-orange-600';
-    if (score >= 25) return 'text-yellow-600';
+    if (score >= 70) return 'text-red-600';
+    if (score >= 50) return 'text-orange-600';
+    if (score >= 30) return 'text-yellow-600';
     return 'text-green-600';
   };
 
   const getScoreBadgeColor = (score) => {
-    if (score >= 65) return 'bg-red-100 text-red-700 border-red-200';
-    if (score >= 45) return 'bg-orange-100 text-orange-700 border-orange-200';
-    if (score >= 25) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+    if (score >= 70) return 'bg-red-100 text-red-700 border-red-200';
+    if (score >= 50) return 'bg-orange-100 text-orange-700 border-orange-200';
+    if (score >= 30) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
     return 'bg-green-100 text-green-700 border-green-200';
   };
 
   const getProgressBarColor = (score) => {
-    if (score >= 65) return 'bg-red-500';
-    if (score >= 45) return 'bg-orange-500';
-    if (score >= 25) return 'bg-yellow-500';
+    if (score >= 70) return 'bg-red-500';
+    if (score >= 50) return 'bg-orange-500';
+    if (score >= 30) return 'bg-yellow-500';
     return 'bg-green-500';
   };
 
@@ -626,6 +665,7 @@ Write a concise clinical summary highlighting key concerns and recommended actio
                               if (editingNoteText.trim()) {
                                 const updatedNotes = notes.map((n, i) => i === index ? editingNoteText : n);
                                 setNotes(updatedNotes);
+                                updatePerson(person.id, { notes: updatedNotes });
                                 setEditingNoteIndex(null);
                                 setEditingNoteText('');
                               }
@@ -684,6 +724,7 @@ Write a concise clinical summary highlighting key concerns and recommended actio
                                 if (window.confirm('Delete this note?')) {
                                   const updatedNotes = notes.filter((_, i) => i !== index);
                                   setNotes(updatedNotes);
+                                  updatePerson(person.id, { notes: updatedNotes });
                                 }
                               }}
                               className="p-1 hover:bg-red-50 rounded transition-colors"
@@ -713,7 +754,9 @@ Write a concise clinical summary highlighting key concerns and recommended actio
                       <button
                         onClick={() => {
                           if (newNoteText.trim()) {
-                            setNotes([...notes, newNoteText]);
+                            const updatedNotes = [...notes, newNoteText];
+                            setNotes(updatedNotes);
+                            updatePerson(person.id, { notes: updatedNotes });
                             setNewNoteText('');
                             setIsAddingNote(false);
                           }

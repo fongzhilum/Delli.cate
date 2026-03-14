@@ -1,8 +1,5 @@
 // content.js
-// Watches for Instagram story URLs and notifies background.js
-
 if (window.__dellicateLoaded) {
-  // already running, skip
 } else {
   window.__dellicateLoaded = true;
   console.log("[Delli.cate] loaded");
@@ -16,9 +13,9 @@ if (window.__dellicateLoaded) {
 
   function notifyOpen() {
     const username = getUsername();
-    if (!username || username === lastUsername) return;
+    if (!username) return;
     lastUsername = username;
-    console.log("[Delli.cate] story opened:", username);
+    console.log("[Delli.cate] story opened:", username, location.href);
     chrome.runtime.sendMessage({ type: "STORY_OPEN", username });
   }
 
@@ -28,7 +25,7 @@ if (window.__dellicateLoaded) {
     chrome.runtime.sendMessage({ type: "STORY_CLOSED" });
   }
 
-  // Watch for SPA navigation (Instagram doesn't reload the page)
+  // Watch for ANY URL change including same username different story
   new MutationObserver(() => {
     if (location.href === lastUrl) return;
     lastUrl = location.href;

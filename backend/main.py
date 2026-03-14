@@ -90,9 +90,9 @@ def score_text(text: str, username: str) -> dict:
         return {"distress_score": 0, "emotional_intensity": 0, "is_concerning": False, "summary": str(e)}
 
 def risk_label(score: int) -> str:
-    if score >= 65: return "critical"
-    if score >= 45: return "high"
-    if score >= 25: return "medium"
+    if score >= 70: return "critical"
+    if score >= 50: return "high"
+    if score >= 30: return "medium"
     return "low"
 
 # ── Routes ────────────────────────────────────────────────────

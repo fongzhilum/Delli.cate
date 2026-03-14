@@ -28,9 +28,9 @@ function rowToPerson(row) {
     ? Math.round(recentNonZero.reduce((sum, p) => sum + p.distressScore, 0) / recentNonZero.length)
     : row.distress_score ?? 0;
 
-  const derivedRiskLevel = overallDistress >= 65 ? 'critical'
-    : overallDistress >= 45 ? 'high'
-    : overallDistress >= 25 ? 'medium'
+  const derivedRiskLevel = overallDistress >= 70 ? 'critical'
+    : overallDistress >= 50 ? 'high'
+    : overallDistress >= 30 ? 'medium'
     : 'low';
 
   return {
