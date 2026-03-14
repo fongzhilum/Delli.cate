@@ -59,8 +59,8 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
-let seconds = 8;
+let seconds = 6;
 setInterval(() => {
   nextCapture.textContent = `next in ${seconds}s`;
-  seconds = seconds <= 1 ? 8 : seconds - 1;
+  seconds = seconds <= 1 ? 6 : seconds - 1;
 }, 1000);

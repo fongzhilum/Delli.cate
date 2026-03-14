@@ -41,7 +41,7 @@ chrome.runtime.onMessage.addListener((msg) => {
     chrome.action.setBadgeBackgroundColor({ color: "#00ff87" });
     if (!timer) {
       takeScreenshotAndSend();
-      timer = setInterval(takeScreenshotAndSend, 8000);
+      timer = setInterval(takeScreenshotAndSend, 6000);
     }
   }
   if (msg.type === "STORY_CLOSED") {
