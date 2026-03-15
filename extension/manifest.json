@@ -3,7 +3,7 @@
   "name": "Delli.cate Monitor",
   "version": "1.0.0",
   "description": "Screenshots Instagram stories for youth welfare distress analysis.",
-  "permissions": ["activeTab", "scripting", "tabs"],
+  "permissions": ["activeTab", "scripting", "tabs", "offscreen", "tabCapture"],
   "host_permissions": [
     "https://www.instagram.com/*",
     "http://127.0.0.1/*"
